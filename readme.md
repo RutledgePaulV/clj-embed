@@ -62,3 +62,7 @@ version. Meanwhile, you can play with the snapshot version from clojars.
 (close-runtime r)
 
 ```
+
+### License
+
+[Unlicense](http://unlicense.org/).
