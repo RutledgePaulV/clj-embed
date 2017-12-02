@@ -4,8 +4,8 @@
 ## clj-embed
 
 
-A clojure library for embedding and using additional
-clojure runtime instances but sharing the underlying JVM. It
+A clojure library for working with segmented runtime 
+"instances" that share the underlying JVM. It
 uses [shimdandy](https://github.com/projectodd/shimdandy) to
 handle the nitty gritty of multiplexing clojure RT but provided as 
 a clojure library so you don't have to worry about build processes 
