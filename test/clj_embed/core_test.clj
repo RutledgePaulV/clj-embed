@@ -7,7 +7,9 @@
 
 (deftest isolated-rt
   (testing "When I get the hash code of RT in the same runtime, they are the same."
-    (let [[h1 h2] (let [r (new-runtime)] [(with-runtime (.hashCode RT)) (with-runtime (.hashCode RT))])]
+    (let [[h1 h2] (let [r (new-runtime)]
+                    [(with-runtime r (.hashCode RT))
+                     (with-runtime r (.hashCode RT))])]
       (is (= h1 h2))))
 
   (testing "When I get the hash code of RT across two different runtimes, they are different."
