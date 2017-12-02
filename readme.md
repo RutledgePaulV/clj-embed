@@ -40,4 +40,9 @@ having to change my build process, etc.
             [0 _] "Fizz"
             [_ 0] "Buzz"
             :else n))))
+
+
+; when you're done with it, clean it up!            
+(close-runtime r)
+
 ```
