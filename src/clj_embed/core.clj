@@ -3,7 +3,8 @@
             [clojure.tools.deps.alpha :as deps]
             [clojure.tools.deps.alpha.providers.maven])
   (:import (java.net URLClassLoader URL)
-           (org.projectodd.shimdandy ClojureRuntimeShim)))
+           (org.projectodd.shimdandy ClojureRuntimeShim)
+           (org.xeustechnologies.jcl JarClassLoader)))
 
 (def ^:const DEFAULT_REPOS
   {"central" {:url "https://repo1.maven.org/maven2/"}
@@ -37,6 +38,17 @@
     (.setName (name (gensym "clj-embed-runtime")))
     (.init)))
 
+(defn construct-class-loader [classes]
+  (let [it (JarClassLoader.)]
+    (doseq [clazz classes] (.add it clazz))
+    (.setEnabled (.getParentLoader it) false)
+    (.setEnabled (.getSystemLoader it) false)
+    it))
+
+(defn unload-classes-from-loader [^JarClassLoader loader]
+  (let [loaded (doall (keys (.getLoadedClasses loader)))]
+    (doseq [clazz loaded] (.unloadClass loader clazz))))
+
 ;; public API
 
 (defn new-runtime
@@ -47,18 +59,21 @@
          (resolve-deps)
          (build-classpath)
          (classpath->urls)
-         (URLClassLoader. nil)))))
+         (construct-class-loader)))))
 
 (defn close-runtime! [runtime]
-  (.close runtime))
+  (.close runtime)
+  (unload-classes-from-loader
+    (.getClassLoader runtime)))
+
+(defn eval-in-runtime [runtime code-as-string]
+  (letfn [(call [fqsym code] (.invoke runtime fqsym code))]
+    (->> (call "clojure.core/read-string" code-as-string)
+         (call "clojure.core/eval"))))
 
 (defmacro with-runtime [runtime & body]
-  (let [form (pr-str (conj body 'do))]
-    `(let [run# ~runtime]
-       (letfn [(call# [pointer# code#]
-                 (.invoke run# pointer# code#))]
-         (->> (call# "clojure.core/read-string" ~form)
-              (call# "clojure.core/eval"))))))
+  (let [text (pr-str (conj body 'do))]
+    `(eval-in-runtime ~runtime ~text)))
 
 (defmacro with-temporary-runtime [& body]
   `(let [runtime# (new-runtime)]
