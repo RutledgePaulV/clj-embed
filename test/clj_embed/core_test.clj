@@ -13,6 +13,7 @@
       (is (= h1 h2))))
 
   (testing "When I get the hash code of RT across two different runtimes, they are different."
-    (let [h1 (-> (new-runtime) (with-runtime (.hashCode RT)))
+    (let [root (.hashCode RT)
+          h1 (-> (new-runtime) (with-runtime (.hashCode RT)))
           h2 (-> (new-runtime) (with-runtime (.hashCode RT)))]
-      (is (not= h1 h2)))))
+      (is 3 (count #{root h1 h2})))))
