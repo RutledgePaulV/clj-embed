@@ -21,7 +21,7 @@ having to change my build process, etc.
 
 ### Usage
 
-```
+```clojure
 (:require [clj-embed.core :as embed])
 
 ; creates a temporary runtime, executes the form, and closes the runtime.
