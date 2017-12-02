@@ -22,6 +22,18 @@ or to load new things into the runtime that never get removed. From my
 perspective, Shimdandy was missing a few functions / macros to really 
 make using an isolated runtime easy.
 
+
+### Install
+
+This project was just thrown together and I'm planning to solicit some
+feedback and do some testing to make sure I understand the implications
+of messing with class loaders and the runtime before I publish an official
+version. Meanwhile, you can play with the snapshot version from clojars.
+
+```clojure
+[org.clojars.rutledgepaulv/clj-embed "0.1.0-SNAPSHOT"]
+```
+
 ### Usage
 
 ```clojure
