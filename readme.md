@@ -22,17 +22,16 @@ having to change my build process, etc.
 ### Usage
 
 ```clojure
-(:require [clj-embed.core :as embed])
+(:require [clj-embed.core :refer :all])
 
 ; creates a temporary runtime, executes the form, and closes the runtime.
-(embed/with-isolated-runtime
+(with-temporary-runtime
  (+ 1 2 3))
 
 ; creates a reusable runtime with core.match available as a dependency.
-
 (def r (new-runtime {'org.clojure/core.match {:mvn/version "0.3.0-alpha5"}}))
 
-(eval-in-runtime r
+(with-runtime r
  (require '[clojure.core.match :refer [match]])
  (doseq [n (range 1 101)]
    (println
