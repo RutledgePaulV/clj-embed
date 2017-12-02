@@ -4,11 +4,12 @@
 A clojure library for embedding and using additional
 clojure runtime instances but sharing the underlying JVM. It
 uses [shimdandy](https://github.com/projectodd/shimdandy) to
-handle the nitty gritty but provided as a clojure library so you
-don't have to worry about build processes and bootstrapping. By default, 
-it includes only the minimum classpath so that you have a functional 
-embedded runtime, but you can specify a [tools.deps](https://github.com/clojure/tools.deps.alpha) 
-dependency map to load more dependencies into the runtimes you create.
+handle the nitty gritty of multiplexing clojure RT but provided as 
+a clojure library so you don't have to worry about build processes 
+and bootstrapping. By default, it includes only the minimum classpath
+so that you have a functional embedded runtime, but you can specify a 
+[tools.deps](https://github.com/clojure/tools.deps.alpha) dependency map 
+to load more dependencies into the runtimes you create.
 
 
 ### Rationale
