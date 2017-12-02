@@ -18,9 +18,9 @@ to load more dependencies into the runtimes you create.
 
 Sometimes I want to provide a repl from a web application, but I
 don't want someone to accidentally mess up the existing namespaces 
-or to load new things into the runtime that never get removed. Shimdandy
-was simply missing a couple functions on top to make it easy to embed without
-having to change my build process, etc.
+or to load new things into the runtime that never get removed. From my
+perspective, Shimdandy was missing a few functions / macros to really 
+make using an isolated runtime easy.
 
 ### Usage
 
