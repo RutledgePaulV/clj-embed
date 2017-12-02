@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/RutledgePaulV/clj-embed.svg?branch=develop)](https://travis-ci.org/RutledgePaulV/clj-embed)
+
 ## clj-embed
 
 
