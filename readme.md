@@ -63,6 +63,17 @@ version. Meanwhile, you can play with the snapshot version from clojars.
 
 ```
 
+
+### Gotchas
+
+Each runtime uses a different class loader so you can't easily pass
+all data between them (the class might not exist on the other, or even if
+it does exist it's not actually the same!). This means that you can't easily combine
+the result of an evaluation in a runtime with other data (unless you stick to only the 
+Java stdlib). I'm planning to explore ways to make this better if it's what you want to 
+do, but in general I think most use cases won't have much of a need for it.
+
+
 ### License
 
 [Unlicense](http://unlicense.org/).
