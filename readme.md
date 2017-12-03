@@ -59,7 +59,7 @@ version. Meanwhile, you can play with the snapshot version from clojars.
 
 
 ; when you're done with it, clean it up!            
-(embed/close-runtime r)
+(embed/close-runtime! r)
 
 ```
 

@@ -43,6 +43,8 @@
     (doseq [clazz classes] (.add it clazz))
     (.setEnabled (.getParentLoader it) false)
     (.setEnabled (.getSystemLoader it) false)
+    (.setEnabled (.getThreadLoader it) false)
+    (.setEnabled (.getOsgiBootLoader it) false)
     it))
 
 (defn unload-classes-from-loader [^JarClassLoader loader]
@@ -68,7 +70,7 @@
 
 (defn eval-in-runtime [runtime code-as-string]
   (letfn [(call [fqsym code] (.invoke runtime fqsym code))]
-    (->> (call "clojure.core/load-string" code-as-string))))
+    (call "clojure.core/load-string" code-as-string)))
 
 (defmacro with-runtime [runtime & body]
   (let [text (pr-str (conj body 'do))]
@@ -76,7 +78,5 @@
 
 (defmacro with-temporary-runtime [& body]
   `(let [runtime# (new-runtime)]
-     (try
-       (with-runtime runtime# ~@body)
-       (finally
-         (close-runtime! runtime#)))))
+     (try (with-runtime runtime# ~@body)
+       (finally (close-runtime! runtime#)))))
