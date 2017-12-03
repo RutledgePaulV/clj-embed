@@ -38,16 +38,16 @@ version. Meanwhile, you can play with the snapshot version from clojars.
 ### Usage
 
 ```clojure
-(:require [clj-embed.core :refer :all])
+(require '[clj-embed.core :as embed])
 
 ; creates a temporary runtime, executes the form, and closes the runtime.
-(with-temporary-runtime
+(embed/with-temporary-runtime
  (+ 1 2 3))
 
 ; creates a reusable runtime with core.match available as a dependency.
-(def r (new-runtime {'org.clojure/core.match {:mvn/version "0.3.0-alpha5"}}))
+(def r (embed/new-runtime {'org.clojure/core.match {:mvn/version "0.3.0-alpha5"}}))
 
-(with-runtime r
+(embed/with-runtime r
  (require '[clojure.core.match :refer [match]])
  (doseq [n (range 1 101)]
    (println
@@ -59,7 +59,7 @@ version. Meanwhile, you can play with the snapshot version from clojars.
 
 
 ; when you're done with it, clean it up!            
-(close-runtime r)
+(embed/close-runtime r)
 
 ```
 
