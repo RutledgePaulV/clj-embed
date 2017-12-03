@@ -71,7 +71,8 @@ all data between them (the class might not exist on the other, or even if
 it does exist it's not actually the same!). This means that you can't easily combine
 the result of an evaluation in a runtime with other data (unless you stick to only the 
 Java stdlib). I'm planning to explore ways to make this better if it's what you want to 
-do, but in general I think most use cases won't have much of a need for it.
+do, but in general my use cases are more about isolated code evaluation than aggregating
+data across different runtimes.
 
 There's a performance hit when running code in a separate runtime. The code goes
 through an extra serialization and load process. Besides that, I doubt Clojure was
