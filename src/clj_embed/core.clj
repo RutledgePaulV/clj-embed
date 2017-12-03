@@ -70,8 +70,12 @@
 
 (defmacro with-piped-runtime [runtime & body]
   (let [text (pr-str (conj body 'do))]
-    `(.invoke runtime "clj-embed.shims/piped-load-string"
-              *in* *out* *err* ~text)))
+    `(.invoke runtime "clj-embed.shims/piped-load-string" *in* *out* *err* ~text)))
+
+(defn start-repl-session
+  ([runtime] (start-repl-session runtime *in* *out* *err*))
+  ([runtime input output error]
+   (.invoke runtime "clj-embed.shims/start-repl-session" input output error)))
 
 (defn refresh-namespaces! [runtime]
   (with-runtime runtime
