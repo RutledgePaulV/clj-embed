@@ -73,6 +73,11 @@ the result of an evaluation in a runtime with other data (unless you stick to on
 Java stdlib). I'm planning to explore ways to make this better if it's what you want to 
 do, but in general I think most use cases won't have much of a need for it.
 
+There's a performance hit when running code in a separate runtime. The code goes
+through an extra serialization and load process. Besides that, I doubt Clojure was
+ever intended to be used this way and so there may be some global thread pool settings
+that would ideally be divvied up by runtime. The library is intended for applications
+where that performance hit is *okay*. But let me know if you know of ways to speed it up!
 
 ### License
 
