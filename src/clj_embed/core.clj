@@ -2,9 +2,9 @@
   (:require [clojure.string :as string]
             [clojure.tools.deps.alpha :as deps]
             [clojure.tools.deps.alpha.providers.maven])
-  (:import (java.net URLClassLoader URL)
-           (org.projectodd.shimdandy ClojureRuntimeShim)
-           (org.xeustechnologies.jcl JarClassLoader)))
+  (:import (org.xeustechnologies.jcl JarClassLoader)
+           (java.util.regex Pattern)
+           (java.io File)))
 
 (def ^:const DEFAULT_REPOS
   {"central" {:url "https://repo1.maven.org/maven2/"}
@@ -13,6 +13,7 @@
 (def ^:const DEFAULT_DEPS
   {'org.projectodd.shimdandy/shimdandy-api  {:mvn/version "1.2.0"}
    'org.projectodd.shimdandy/shimdandy-impl {:mvn/version "1.2.0"}
+   'org.clojure/tools.namespace             {:mvn/version "0.2.11"}
    'org.clojure/clojure                     {:mvn/version "1.9.0-RC2"}})
 
 (def ^:const RUNTIME_SHIM_CLASS
@@ -29,8 +30,8 @@
 (defn- build-classpath [deps]
   (deps/make-classpath deps nil nil))
 
-(defn- classpath->urls [classpath]
-  (into-array URL (mapv #(URL. (str "file:" %)) (string/split classpath #":"))))
+(defn- classpath-segments [classpath]
+  (string/split classpath (Pattern/compile (Pattern/quote File/pathSeparator))))
 
 (defn- new-shim [^ClassLoader classloader]
   (doto (.newInstance (.loadClass classloader RUNTIME_SHIM_CLASS))
@@ -56,12 +57,12 @@
 (defn new-runtime
   ([] (new-runtime {}))
   ([deps]
-   (new-shim
-     (-> deps
-         (resolve-deps)
-         (build-classpath)
-         (classpath->urls)
-         (construct-class-loader)))))
+   (->> deps
+        (resolve-deps)
+        (build-classpath)
+        (classpath-segments)
+        (construct-class-loader)
+        (new-shim))))
 
 (defn close-runtime! [runtime]
   (.close runtime)
@@ -79,4 +80,16 @@
 (defmacro with-temporary-runtime [& body]
   `(let [runtime# (new-runtime)]
      (try (with-runtime runtime# ~@body)
-       (finally (close-runtime! runtime#)))))
+          (finally (close-runtime! runtime#)))))
+
+(defn refresh-namespaces! [runtime]
+  (with-runtime runtime
+    (require '[clojure.tools.namespace.repl])
+    (clojure.tools.namespace.repl/refresh)))
+
+(defn load-namespaces! [runtime & directories]
+  (let [code `(do
+                (require '[clojure.tools.namespace.repl])
+                (clojure.tools.namespace.repl/set-refresh-dirs ~@directories)
+                (clojure.tools.namespace.repl/refresh-all))]
+    (eval-in-runtime runtime (pr-str code))))
