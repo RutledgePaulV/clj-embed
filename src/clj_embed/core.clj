@@ -1,7 +1,8 @@
 (ns clj-embed.core
   (:require [clojure.string :as string]
             [clojure.tools.deps.alpha :as deps]
-            [clojure.tools.deps.alpha.providers.maven])
+            [clojure.tools.deps.alpha.providers.maven]
+            [clojure.java.io :as io])
   (:import (org.xeustechnologies.jcl JarClassLoader)
            (java.util.regex Pattern)
            (java.io File)))
@@ -33,7 +34,7 @@
 (defn- classpath-segments [classpath]
   (string/split classpath (Pattern/compile (Pattern/quote File/pathSeparator))))
 
-(defn- new-shim [^ClassLoader classloader]
+(defn- new-rt-shim [^ClassLoader classloader]
   (doto (.newInstance (.loadClass classloader RUNTIME_SHIM_CLASS))
     (.setClassLoader classloader)
     (.setName (name (gensym "clj-embed-runtime")))
@@ -54,16 +55,6 @@
 
 ;; public API
 
-(defn new-runtime
-  ([] (new-runtime {}))
-  ([deps]
-   (->> deps
-        (resolve-deps)
-        (build-classpath)
-        (classpath-segments)
-        (construct-class-loader)
-        (new-shim))))
-
 (defn close-runtime! [runtime]
   (.close runtime)
   (unload-classes-from-loader
@@ -77,10 +68,10 @@
   (let [text (pr-str (conj body 'do))]
     `(eval-in-runtime ~runtime ~text)))
 
-(defmacro with-temporary-runtime [& body]
-  `(let [runtime# (new-runtime)]
-     (try (with-runtime runtime# ~@body)
-          (finally (close-runtime! runtime#)))))
+(defmacro with-piped-runtime [runtime & body]
+  (let [text (pr-str (conj body 'do))]
+    `(.invoke runtime "clj-embed.shims/piped-load-string"
+              *in* *out* *err* ~text)))
 
 (defn refresh-namespaces! [runtime]
   (with-runtime runtime
@@ -93,3 +84,24 @@
                 (clojure.tools.namespace.repl/set-refresh-dirs ~@directories)
                 (clojure.tools.namespace.repl/refresh-all))]
     (eval-in-runtime runtime (pr-str code))))
+
+(defn load-shim-lib [runtime]
+  (let [runtime-shim (slurp (io/resource "shims.clj"))]
+    (eval-in-runtime runtime runtime-shim)
+    runtime))
+
+(defn new-runtime
+  ([] (new-runtime {}))
+  ([deps]
+   (->> deps
+        (resolve-deps)
+        (build-classpath)
+        (classpath-segments)
+        (construct-class-loader)
+        (new-rt-shim)
+        (load-shim-lib))))
+
+(defmacro with-temporary-runtime [& body]
+  `(let [runtime# (new-runtime)]
+     (try (with-runtime runtime# ~@body)
+          (finally (close-runtime! runtime#)))))

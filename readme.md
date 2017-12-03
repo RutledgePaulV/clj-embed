@@ -58,11 +58,32 @@ feel free to play with the snapshot version from clojars.
             :else n))))
 
 
+; bindings can be conveyed too by converting the current bindings into plain function arguments
+; (raw java only!), calling the target runtime, and unpacking the arguments into bindings
+; again on the target runtime. Or, for stdin/stdout just use:
+
+(embed/with-piped-runtime runtime 
+  (name (read)))
+
+
 ; when you're done with it, clean it up!            
 (embed/close-runtime! r)
 
 ```
 
+### How Does It Work?
+
+Clj-Embed creates a new class loader using JCL that does not delegate up the class loader chain.
+This means that the classes available in the runtime are only those setup by the boot
+class path loader (which brings Java) and then Clojure and other libraries are loaded
+in isolation. 
+
+When you create a runtime, clj-embed embeds a "shim" namespace into the new runtime
+that it can use to define functions to help it perform its duties in the new runtime.
+It invokes these functions whenever it needs to evaluate code in the target runtime
+thus giving a place for me to perform before/after abstraction on either side. 
+Having these places to hook means I can start to support more data types crossing 
+the class loader boundary or do things like binding conveyance of stdin & stdout.
 
 ### Gotchas
 
