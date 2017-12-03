@@ -68,8 +68,7 @@
 
 (defn eval-in-runtime [runtime code-as-string]
   (letfn [(call [fqsym code] (.invoke runtime fqsym code))]
-    (->> (call "clojure.core/read-string" code-as-string)
-         (call "clojure.core/eval"))))
+    (->> (call "clojure.core/load-string" code-as-string))))
 
 (defmacro with-runtime [runtime & body]
   (let [text (pr-str (conj body 'do))]
