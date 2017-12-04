@@ -101,6 +101,15 @@ ever intended to be used this way and so there may be some global thread pool se
 that would ideally be divvied up by runtime. The library is intended for applications
 where that performance hit is *okay*. But let me know if you know of ways to speed it up!
 
+
+### Alternatives
+
+* [Boot Pods](https://github.com/boot-clj/boot/wiki/Pods)
+
+Boot pods are certainly more battle tested than clj-embed and generally follow
+the same idea. For now you're probably better off using those if you have a need
+for this kind of thing.
+
 ### License
 
 [Unlicense](http://unlicense.org/).
