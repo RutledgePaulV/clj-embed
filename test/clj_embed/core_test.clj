@@ -12,9 +12,9 @@
   (testing "create a namespace in one place and show it's not in the root or in another."
     (let [r1 (new-runtime) r2 (new-runtime)]
       (try
-        (with-runtime r1 (ns clj-embed.my-test-ns))
-        (let [r1-namespaces   (with-runtime r1 (into #{} (map #(name (.getName %)) (all-ns))))
-              r2-namespaces   (with-runtime r2 (into #{} (map #(name (.getName %)) (all-ns))))
+        (exec-with-runtime r1 (ns clj-embed.my-test-ns))
+        (let [r1-namespaces   (exec-with-runtime r1 (into #{} (map #(name (.getName %)) (all-ns))))
+              r2-namespaces   (exec-with-runtime r2 (into #{} (map #(name (.getName %)) (all-ns))))
               root-namespaces (into #{} (map #(name (.getName %)) (all-ns)))]
           (is (contains? r1-namespaces "clj-embed.my-test-ns"))
           (is (not (contains? r2-namespaces "clj-embed.my-test-ns")))
@@ -28,8 +28,8 @@
     (let [[h1 h2]
           (let [r (new-runtime)]
             (try
-              [(with-runtime r (.hashCode RT))
-               (with-runtime r (.hashCode RT))]
+              [(exec-with-runtime r (.hashCode RT))
+               (exec-with-runtime r (.hashCode RT))]
               (finally
                 (close-runtime! r))))]
       (is (= h1 h2))))

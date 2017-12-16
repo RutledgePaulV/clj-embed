@@ -7,6 +7,7 @@
            (java.util.regex Pattern)
            (java.io File)))
 
+
 (def ^:const DEFAULT_REPOS
   {"central" {:url "https://repo1.maven.org/maven2/"}
    "clojars" {:url "https://clojars.org/repo/"}})
@@ -62,9 +63,9 @@
 
 (defn eval-in-runtime [runtime code-as-string]
   (letfn [(call [fqsym code] (.invoke runtime fqsym code))]
-    (call "clojure.core/load-string" code-as-string)))
+    (call "clj-embed.shims/my-load-string" code-as-string)))
 
-(defmacro with-runtime [runtime & body]
+(defmacro exec-with-runtime [runtime & body]
   (let [text (pr-str (conj body 'do))]
     `(eval-in-runtime ~runtime ~text)))
 
@@ -78,7 +79,7 @@
    (.invoke runtime "clj-embed.shims/start-repl-session" input output error)))
 
 (defn refresh-namespaces! [runtime]
-  (with-runtime runtime
+  (exec-with-runtime runtime
     (require '[clojure.tools.namespace.repl])
     (clojure.tools.namespace.repl/refresh)))
 
@@ -91,7 +92,7 @@
 
 (defn load-shim-lib [runtime]
   (let [runtime-shim (slurp (io/resource "shims.clj"))]
-    (eval-in-runtime runtime runtime-shim)
+    (.invoke runtime "clojure.core/load-string" runtime-shim)
     runtime))
 
 (defn new-runtime
@@ -107,9 +108,8 @@
 
 (defmacro with-temporary-runtime [& body]
   `(let [runtime# (new-runtime)]
-     (try (with-runtime runtime# ~@body)
+     (try (exec-with-runtime runtime# ~@body)
           (finally (close-runtime! runtime#)))))
-
 
 (def ^:dynamic *runtime* nil)
 
@@ -122,18 +122,44 @@
 (defmulti deserialize class)
 (defmethod deserialize :default [code] (read-string code))
 
+(defn latent-bound [sym]
+  (list 'resolve (list 'symbol "clj-embed.shims" (name sym))))
+
 (defmacro defn [sym bindings & body]
-  `(let [inject# '(def ~sym (fn ~bindings ~@body))
-         deffed# (atom false)]
+  `(let [inject# '(do (in-ns 'clj-embed.shims) (def ~sym (fn ~bindings ~@body)))
+         define#   (memoize (fn [runtime#] (eval-in-runtime runtime# (pr-str inject#))))]
+
      (clojure.core/defn ~sym [& arguments#]
-       (when-not (deref deffed#)
-         (eval-in-runtime *runtime* (pr-str inject#))
-         (swap! deffed# not))
-       (if *runtime*
-         (let [exec-call# (list
-                            'do
-                            '(in-ns 'clj-embed.shims)
-                            (list 'pr-str (conj arguments# (list 'resolve (list 'symbol (name '~sym))))))
-               as-code# (pr-str exec-call#)]
-           (deserialize (eval-in-runtime *runtime* as-code#)))
+       (if-some [runtime2# *runtime*]
+         (do
+
+           (define# runtime2#)
+
+           ; serialize the arguments before crossing the boundary
+           (let [serialized# (serialize arguments#)
+
+                 exec-call#  (list
+                               'do
+                               ; make shims available
+                               '(require '[clj-embed.shims])
+                               (list
+                                 ; serialize the result before crossing the boundary
+                                 (latent-bound 'serialize)
+
+                                 (list
+                                   ; apply the arguments to the defined func
+                                   'apply
+                                   ; resolve the function that was injected
+                                   (latent-bound '~sym)
+                                   ; parse the arguments from the other side of
+                                   ; the boundary before executing the function
+                                   (list (latent-bound 'deserialize) serialized#))))
+
+                 ; code as string to hand off to the runtime
+                 final-eval# (pr-str exec-call#)]
+
+             ; deserialize the result after crossing the boundary
+             (deserialize (eval-in-runtime runtime2# final-eval#))))
+
          (throw (ex-info "No bound *runtime* variable!" {}))))))
+

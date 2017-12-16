@@ -1,14 +1,13 @@
 (ns clj-embed.shims
-  (:require [clojure.core :as core]
-            [clojure.main :as main]))
+  (:require [clojure.main :as main]))
 
 
-(defn load-string [s]
-  (core/load-string s))
+(defn my-load-string [s]
+  (load-string s))
 
 (defn piped-load-string [input output error s]
   (binding [*out* output *err* error *in* input]
-    (load-string s)))
+    (my-load-string s)))
 
 (defn start-repl-session [input output error]
   (.start
@@ -24,9 +23,12 @@
             (catch Exception e (some-> (.getMessage e) println))
             (finally (println "=== Finished ==="))))))))
 
-
 (defmulti serialize class)
-(defmethod serialize :default [code] (pr-str code))
+
+(defmethod serialize :default
+  [code] (pr-str code))
 
 (defmulti deserialize class)
-(defmethod deserialize :default [code] (read-string code))
+
+(defmethod deserialize :default
+  [code] (read-string code))
