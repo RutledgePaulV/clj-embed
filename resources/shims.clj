@@ -23,3 +23,10 @@
                   (if (= 'exit form) request-exit form))))
             (catch Exception e (some-> (.getMessage e) println))
             (finally (println "=== Finished ==="))))))))
+
+
+(defmulti serialize class)
+(defmethod serialize :default [code] (pr-str code))
+
+(defmulti deserialize class)
+(defmethod deserialize :default [code] (read-string code))

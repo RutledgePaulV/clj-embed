@@ -15,7 +15,7 @@
   {'org.projectodd.shimdandy/shimdandy-api  {:mvn/version "1.2.0"}
    'org.projectodd.shimdandy/shimdandy-impl {:mvn/version "1.2.0"}
    'org.clojure/tools.namespace             {:mvn/version "0.2.11"}
-   'org.clojure/clojure                     {:mvn/version "1.9.0-RC2"}})
+   'org.clojure/clojure                     {:mvn/version "1.9.0"}})
 
 (def ^:const RUNTIME_SHIM_CLASS
   "org.projectodd.shimdandy.impl.ClojureRuntimeShimImpl")
@@ -109,3 +109,31 @@
   `(let [runtime# (new-runtime)]
      (try (with-runtime runtime# ~@body)
           (finally (close-runtime! runtime#)))))
+
+
+(def ^:dynamic *runtime* nil)
+
+(defmacro with-runtime [runtime & body]
+  `(binding [*runtime* ~runtime] ~@body))
+
+(defmulti serialize class)
+(defmethod serialize :default [code] (pr-str code))
+
+(defmulti deserialize class)
+(defmethod deserialize :default [code] (read-string code))
+
+(defmacro defn [sym bindings & body]
+  `(let [inject# '(def ~sym (fn ~bindings ~@body))
+         deffed# (atom false)]
+     (clojure.core/defn ~sym [& arguments#]
+       (when-not (deref deffed#)
+         (eval-in-runtime *runtime* (pr-str inject#))
+         (swap! deffed# not))
+       (if *runtime*
+         (let [exec-call# (list
+                            'do
+                            '(in-ns 'clj-embed.shims)
+                            (list 'pr-str (conj arguments# (list 'resolve (list 'symbol (name '~sym))))))
+               as-code# (pr-str exec-call#)]
+           (deserialize (eval-in-runtime *runtime* as-code#)))
+         (throw (ex-info "No bound *runtime* variable!" {}))))))
