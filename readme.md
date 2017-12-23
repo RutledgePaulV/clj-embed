@@ -62,7 +62,7 @@ feel free to play with the snapshot version from clojars.
 ; (raw java only!), calling the target runtime, and unpacking the arguments into bindings
 ; again on the target runtime. Or, for stdin/stdout just use:
 
-(embed/with-piped-runtime runtime 
+(embed/with-piped-runtime r 
   (name (read)))
 
 
