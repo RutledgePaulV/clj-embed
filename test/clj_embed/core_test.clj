@@ -39,3 +39,12 @@
           h1   (with-temporary-runtime (.hashCode RT))
           h2   (with-temporary-runtime (.hashCode RT))]
       (is 3 (count #{root h1 h2})))))
+
+
+(deftest custom-repos
+  (testing "The new-runtime function supports specifying custom Maven repositories."
+    (let [r (new-runtime
+             '{org.renjin/renjin-script-engine {:mvn/version "0.9.2726"}}
+             :repos {"bedatadriven public repo" {:url "https://nexus.bedatadriven.com/content/groups/public/"}})]
+      (is (= "org.renjin.sexp.Vector"
+             (with-runtime r (pr-str org.renjin.sexp.Vector)))))))

@@ -22,10 +22,10 @@
 
 (defn- resolve-deps
   ([] (resolve-deps {}))
-  ([deps]
+  ([deps & {:keys [repos]}]
    (deps/resolve-deps
      {:deps      (merge DEFAULT_DEPS deps)
-      :mvn/repos DEFAULT_REPOS}
+      :mvn/repos (merge DEFAULT_REPOS repos)}
      nil)))
 
 (defn- build-classpath [deps]
@@ -96,14 +96,14 @@
 
 (defn new-runtime
   ([] (new-runtime {}))
-  ([deps]
-   (->> deps
-        (resolve-deps)
-        (build-classpath)
-        (classpath-segments)
-        (construct-class-loader)
-        (new-rt-shim)
-        (load-shim-lib))))
+  ([deps & {:keys [repos]}]
+   (-> deps
+       (resolve-deps :repos repos)
+       (build-classpath)
+       (classpath-segments)
+       (construct-class-loader)
+       (new-rt-shim)
+       (load-shim-lib))))
 
 (defmacro with-temporary-runtime [& body]
   `(let [runtime# (new-runtime)]
