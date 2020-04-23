@@ -1,4 +1,6 @@
 language: clojure
+before_install:
+  - lein install
 matrix:
   include:
     - jdk: openjdk12
