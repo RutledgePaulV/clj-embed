@@ -3,6 +3,21 @@
 
 ## clj-embed
 
+> Tortoise: That's the word I was looking for! "POPPING-TONIC" that's what it's called, and if you remember to carry a bottle of it in your right hand as you swallow the pushing-potion, it too will be pushed into the picture; then, whenever you get a hankering to "pop" back out into real life, you need only take a swallow of popping-tonic, and presto! You're back in the real. world, exactly where you were before you pushed yourself in. - GEB: A Little Harmonic Labyrinth
+
+### tldr;
+
+```clojure
+(require '[clj-embed.core :refer [new-runtime with-runtime]])
+(def runtime (new-runtime))
+
+(with-runtime runtime
+  (require '[clj-embed.core :refer [new-runtime with-runtime]])
+  (def runtime (new-runtime))
+
+  (with-runtime runtime
+    (+ 1 2 3)))
+```
 
 A clojure library for working with segmented runtime 
 "instances" that share the underlying JVM. It
