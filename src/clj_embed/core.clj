@@ -8,7 +8,7 @@
            (java.io File)
            (java.util Properties)))
 
-(defonce ^:private runtimes (atom []))
+(defonce ^:private runtimes (atom #{}))
 
 (defn- get-jar-version [dep]
   (let [segment0 "META-INF/maven"
@@ -110,8 +110,15 @@
 (declare close-runtime!)
 
 (defn- unload-runtimes []
-  (run! close-runtime! @runtimes))
+  (run! close-runtime! (reset-vals! runtimes #{})))
 
+(defn- require-namespaces [runtime]
+  (let [namespaces (mapv #(.getName %) (all-ns))
+        code `(doseq [namespace# '~namespaces]
+                (try (require namespace#)
+                     (catch Exception e#)))]
+    (after-bootstrap-eval runtime code)
+    runtime))
 
 ;; =======================
 ;; public API
@@ -147,7 +154,8 @@
         (construct-class-loader)
         (new-rt-shim)
         (load-self)
-        (register))))
+        (register)
+        (require-namespaces))))
 
 (defmacro with-runtime [runtime & body]
   (let [text (pr-str (conj body 'do))]
@@ -159,6 +167,7 @@
           (finally (close-runtime! runtime#)))))
 
 (defn close-runtime! [runtime]
+  (swap! runtimes disj runtime)
   (after-bootstrap-eval runtime
     `(#'clj-embed.core/unload-runtimes))
   (.close runtime)
