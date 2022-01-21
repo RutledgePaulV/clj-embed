@@ -1,7 +1,6 @@
 (ns clj-embed.core
   (:require [clojure.string :as string]
             [clojure.tools.deps.alpha :as deps]
-            [clojure.tools.deps.alpha.providers.maven]
             [clojure.java.io :as io])
   (:import (org.xeustechnologies.jcl JarClassLoader)
            (java.util.regex Pattern)
