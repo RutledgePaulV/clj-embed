@@ -8,7 +8,7 @@
   {:init-ns clj-embed.core}
 
   :dependencies
-  [[org.clojure/clojure "1.10.1"]
-   [org.clojure/tools.deps.alpha "0.8.677"]
+  [[org.clojure/clojure "1.10.3"]
+   [org.clojure/tools.deps.alpha "0.12.1109"]
    [org.projectodd.shimdandy/shimdandy-api "1.2.1"]
    [org.xeustechnologies/jcl-core "2.8"]])
