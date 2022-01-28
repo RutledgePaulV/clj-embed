@@ -1,40 +1,71 @@
 (ns clj-embed.core
-  (:require [clojure.string :as string]
+  (:require [clojure.string :as strings]
             [clojure.tools.deps.alpha :as deps]
-            [clojure.tools.deps.alpha.providers.maven]
             [clojure.java.io :as io])
+  (:refer-clojure :exclude (load-string))
   (:import (org.xeustechnologies.jcl JarClassLoader)
            (java.util.regex Pattern)
-           (java.io File)))
+           (java.io File)
+           (java.util Properties)))
 
-(def ^:const DEFAULT_REPOS
-  {"central" {:url "https://repo1.maven.org/maven2/"}
-   "clojars" {:url "https://clojars.org/repo/"}})
+(defonce runtimes (atom #{}))
 
-(def ^:const DEFAULT_DEPS
-  {'org.projectodd.shimdandy/shimdandy-api  {:mvn/version "1.2.0"}
-   'org.projectodd.shimdandy/shimdandy-impl {:mvn/version "1.2.0"}
-   'org.clojure/tools.namespace             {:mvn/version "0.2.11"}
-   'org.clojure/clojure                     {:mvn/version "1.9.0-RC2"}})
+(defn get-jar-version [dep]
+  (let [segment0 "META-INF/maven"
+        segment1 (or (namespace dep) (name dep))
+        segment2 (name dep)
+        segment3 "pom.properties"
+        path     (strings/join "/" [segment0 segment1 segment2 segment3])
+        props    (io/resource path)]
+    (when props
+      (with-open [stream (io/input-stream props)]
+        (let [props (doto (Properties.) (.load stream))]
+          (.getProperty props "version"))))))
 
-(def ^:const RUNTIME_SHIM_CLASS
+(def DEFAULT_DEPS_MAP
+  {:mvn/repos {"central" {:url "https://repo1.maven.org/maven2/"}
+               "clojars" {:url "https://clojars.org/repo/"}}
+   :deps      {'org.projectodd.shimdandy/shimdandy-api
+               {:mvn/version "1.2.1"}
+               'org.projectodd.shimdandy/shimdandy-impl
+               {:mvn/version "1.2.1"}
+               'org.clojure/clojure
+               {:mvn/version "1.10.3"}
+               'org.clojars.rutledgepaulv/clj-embed
+               {:mvn/version (get-jar-version 'org.clojars.rutledgepaulv/clj-embed)}}})
+
+(def RUNTIME_SHIM_CLASS
   "org.projectodd.shimdandy.impl.ClojureRuntimeShimImpl")
 
-(defn- resolve-deps
-  ([] (resolve-deps {}))
+(defn deep-merge [& maps]
+  (letfn [(inner-merge [& maps]
+            (let [ms (remove nil? maps)]
+              (if (every? map? ms)
+                (apply merge-with inner-merge ms)
+                (last maps))))]
+    (apply inner-merge maps)))
+
+(defn resolve-deps [deps-map]
+  (deps/resolve-deps (deep-merge DEFAULT_DEPS_MAP deps-map) nil))
+
+(defn build-classpath
   ([deps]
-   (deps/resolve-deps
-     {:deps      (merge DEFAULT_DEPS deps)
-      :mvn/repos DEFAULT_REPOS}
-     nil)))
+   (deps/make-classpath deps nil nil))
+  ([paths deps]
+   (deps/make-classpath deps paths nil)))
 
-(defn- build-classpath [deps]
-  (deps/make-classpath deps nil nil))
+(defn classpath-segments [classpath]
+  (strings/split classpath (Pattern/compile (Pattern/quote File/pathSeparator))))
 
-(defn- classpath-segments [classpath]
-  (string/split classpath (Pattern/compile (Pattern/quote File/pathSeparator))))
+(defn jar? [path]
+  (re-find #"\.jar$" path))
 
-(defn- new-rt-shim [^ClassLoader classloader]
+(defn get-current-classpath []
+  (->> (System/getProperty "java.class.path")
+       (classpath-segments)
+       (filter jar?)))
+
+(defn new-rt-shim [^ClassLoader classloader]
   (doto (.newInstance (.loadClass classloader RUNTIME_SHIM_CLASS))
     (.setClassLoader classloader)
     (.setName (name (gensym "clj-embed-runtime")))
@@ -50,62 +81,90 @@
     it))
 
 (defn unload-classes-from-loader [^JarClassLoader loader]
-  (let [loaded (doall (keys (.getLoadedClasses loader)))]
-    (doseq [clazz loaded] (.unloadClass loader clazz))))
+  (doseq [clazz (doall (keys (.getLoadedClasses loader)))]
+    (.unloadClass loader clazz)))
 
+(defn load-string [s]
+  (clojure.core/load-string s))
+
+(defn var->string [v]
+  (str (symbol v)))
+
+(defn ensure-serialized [c]
+  (if (string? c) c (pr-str c)))
+
+(defn bootstrap-eval [runtime code]
+  (.invoke runtime (var->string #'clojure.core/load-string) (ensure-serialized code)))
+
+(defn after-bootstrap-eval [runtime code]
+  (.invoke runtime (var->string #'clj-embed.core/load-string) (ensure-serialized code)))
+
+(defn load-self [runtime]
+  (bootstrap-eval runtime `(clojure.core/serialized-require 'clj-embed.core))
+  runtime)
+
+(defn register [runtime]
+  (swap! runtimes conj runtime)
+  runtime)
+
+(declare close-runtime!)
+
+(defn unload-runtimes []
+  (clojure.core/run! close-runtime! (clojure.core/first (clojure.core/reset-vals! runtimes #{}))))
+
+(defn require-namespaces [runtime]
+  runtime)
+
+;; =======================
 ;; public API
-
-(defn close-runtime! [runtime]
-  (.close runtime)
-  (unload-classes-from-loader
-    (.getClassLoader runtime)))
-
-(defn eval-in-runtime [runtime code-as-string]
-  (letfn [(call [fqsym code] (.invoke runtime fqsym code))]
-    (call "clojure.core/load-string" code-as-string)))
-
-(defmacro with-runtime [runtime & body]
-  (let [text (pr-str (conj body 'do))]
-    `(eval-in-runtime ~runtime ~text)))
-
-(defmacro with-piped-runtime [runtime & body]
-  (let [text (pr-str (conj body 'do))]
-    `(.invoke runtime "clj-embed.shims/piped-load-string" *in* *out* *err* ~text)))
-
-(defn start-repl-session
-  ([runtime] (start-repl-session runtime *in* *out* *err*))
-  ([runtime input output error]
-   (.invoke runtime "clj-embed.shims/start-repl-session" input output error)))
-
-(defn refresh-namespaces! [runtime]
-  (with-runtime runtime
-    (require '[clojure.tools.namespace.repl])
-    (clojure.tools.namespace.repl/refresh)))
-
-(defn load-namespaces! [runtime & directories]
-  (let [code `(do
-                (require '[clojure.tools.namespace.repl])
-                (clojure.tools.namespace.repl/set-refresh-dirs ~@directories)
-                (clojure.tools.namespace.repl/refresh-all))]
-    (eval-in-runtime runtime (pr-str code))))
-
-(defn load-shim-lib [runtime]
-  (let [runtime-shim (slurp (io/resource "shims.clj"))]
-    (eval-in-runtime runtime runtime-shim)
-    runtime))
+;; =======================
 
 (defn new-runtime
+  "Creates a new, blank runtime - loading only the specified deps.
+
+  Takes a deps.edn map of configuration.
+  "
   ([] (new-runtime {}))
   ([deps]
-   (->> deps
+   (->> (if (contains? deps :deps) deps {:deps deps})
         (resolve-deps)
         (build-classpath)
         (classpath-segments)
         (construct-class-loader)
         (new-rt-shim)
-        (load-shim-lib))))
+        (load-self)
+        (register))))
+
+(defn fork-runtime
+  "Creates a new runtime modeled after the current runtime - loading all the same deps.
+
+  Takes a deps.edn map of configuration.
+  "
+  ([] (fork-runtime {}))
+  ([deps]
+   (->> (if (contains? deps :deps) deps {:deps deps})
+        (resolve-deps)
+        (build-classpath (get-current-classpath))
+        (classpath-segments)
+        (construct-class-loader)
+        (new-rt-shim)
+        (load-self)
+        (register)
+        (require-namespaces))))
+
+(defmacro with-runtime [runtime & body]
+  (let [text (pr-str (conj body 'do))]
+    `(clj-embed.core/after-bootstrap-eval ~runtime ~text)))
 
 (defmacro with-temporary-runtime [& body]
   `(let [runtime# (new-runtime)]
      (try (with-runtime runtime# ~@body)
           (finally (close-runtime! runtime#)))))
+
+(defn close-runtime! [runtime]
+  (swap! runtimes disj runtime)
+  (after-bootstrap-eval runtime
+                        `(clj-embed.core/unload-runtimes))
+  (.close runtime)
+  (unload-classes-from-loader
+    (.getClassLoader runtime)))
